@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Infinite Hyper-Blobs: Ultra Edition</title>
+    <style>
+        body, html { margin: 0; padding: 0; background: #020205; overflow: hidden; font-family: 'Courier New', monospace; color: #00f2ff; }
+        
+        /* Menu Styling */
+        #menu { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(2, 2, 5, 0.95); z-index: 100; text-align: center; }
+        .btn { background: none; border: 2px solid #00f2ff; color: #00f2ff; padding: 15px 40px; margin: 10px; cursor: pointer; font-family: inherit; font-size: 1.2rem; transition: 0.3s; width: 300px; }
+        .btn:hover { background: #00f2ff; color: #000; box-shadow: 0 0 20px #00f2ff; }
+        
+        /* Game UI */
+        #ui { position: absolute; top: 20px; left: 20px; background: rgba(0, 10, 20, 0.8); padding: 20px; border: 1px solid #00f2ff; border-radius: 4px; pointer-events: none; visibility: hidden; }
+        canvas { display: block; filter: contrast(1.2) brightness(1.2); }
+        b { color: #fff; font-size: 1.6em; text-shadow: 0 0 10px #00f2ff; }
+    </style>
+</head>
+<body>
+    <div id="menu">
+        <h1>SELECT HARDWARE POWER</h1>
+        <button class="btn" onclick="start(20000)">POTATO MODE (Low End)</button>
+        <button class="btn" onclick="start(60000)">NORMAL (Average PC)</button>
+        <button class="btn" onclick="start(200000)">GOOD (NASA PC)</button>
+    </div>
+
+    <div id="ui">
+        POPULATION: <br><b id="count">1</b><br><br>
+        ZOOM: <b id="zoomVal">100%</b>
+    </div>
+    <canvas id="canvas"></canvas>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d', { alpha: false });
+        const countDisplay = document.getElementById('count');
+        const zoomDisplay = document.getElementById('zoomVal');
+
+        let width, height, totalCount = BigInt(1), zoom = 1.0, targetZoom = 1.0;
+        let MAX_VISUAL, posX, posY, velX, velY, colors, activeVisuals = 1;
+
+        function start(limit) {
+            MAX_VISUAL = limit;
+            posX = new Float32Array(MAX_VISUAL);
+            posY = new Float32Array(MAX_VISUAL);
+            velX = new Float32Array(MAX_VISUAL);
+            velY = new Float32Array(MAX_VISUAL);
+            colors = new Uint16Array(MAX_VISUAL);
+            
+            // Set initial blob
+            posX[0] = 0; posY[0] = 0; colors[0] = 190;
+            
+            document.getElementById('menu').style.display = 'none';
+            document.getElementById('ui').style.visibility = 'visible';
+            resize();
+            update();
+        }
+
+        function resize() {
+            width = canvas.width = window.innerWidth;
+            height = canvas.height = window.innerHeight;
+        }
+
+        window.addEventListener('resize', resize);
+        window.addEventListener('wheel', e => {
+            e.preventDefault();
+            targetZoom *= (e.deltaY > 0) ? 0.8 : 1.25;
+            targetZoom = Math.max(1e-15, Math.min(100, targetZoom));
+        }, {passive: false});
+
+        function update() {
+            // DOUBLING ENGINE
+            if (Date.now() % 2000 < 20) {
+                totalCount *= BigInt(2);
+                const currentBatch = activeVisuals;
+                for (let i = 0; i < currentBatch; i++) {
+                    if (activeVisuals < MAX_VISUAL) {
+                        posX[activeVisuals] = posX[i];
+                        posY[activeVisuals] = posY[i];
+                        const angle = Math.random() * Math.PI * 2;
+                        const force = 3;
+                        velX[i] += Math.cos(angle) * force;
+                        velY[i] += Math.sin(angle) * force;
+                        velX[activeVisuals] = -velX[i];
+                        velY[activeVisuals] = -velY[i];
+                        colors[activeVisuals] = (colors[i] + 5) % 360;
+                        activeVisuals++;
+                    }
+                }
+            }
+
+            zoom += (targetZoom - zoom) * 0.1;
+
+            // Physics Loop
+            for (let i = 0; i < activeVisuals; i++) {
+                posX[i] += velX[i];
+                posY[i] += velY[i];
+                velX[i] *= 0.96;
+                velY[i] *= 0.96;
+                posX[i] += (Math.random() - 0.5) * 0.2;
+                posY[i] += (Math.random() - 0.5) * 0.2;
+            }
+
+            draw();
+            requestAnimationFrame(update);
+        }
+
+        function draw() {
+            ctx.fillStyle = 'rgba(2, 2, 5, 0.3)'; // Motion Trails
+            ctx.fillRect(0, 0, width, height);
+            
+            const cx = width / 2, cy = height / 2;
+            const viewMargin = 100 / zoom;
+            const l = -cx/zoom - viewMargin, r = cx/zoom + viewMargin;
+            const t = -cy/zoom - viewMargin, b = cy/zoom + viewMargin;
+
+            const dotSize = Math.max(2, 4 / Math.sqrt(zoom));
+
+            for (let i = 0; i < activeVisuals; i++) {
+                if (posX[i] > l && posX[i] < r && posY[i] > t && posY[i] < b) {
+                    ctx.fillStyle = `hsl(${colors[i]}, 100%, 60%)`;
+                    ctx.fillRect(cx + posX[i] * zoom, cy + posY[i] * zoom, dotSize, dotSize);
+                }
+            }
+
+            countDisplay.innerText = totalCount.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+            zoomDisplay.innerText = (zoom * 100).toExponential(1) + "%";
+        }
+    </script>
+</body>
+</html>
+
+
